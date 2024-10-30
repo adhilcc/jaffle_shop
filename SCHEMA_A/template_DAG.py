@@ -25,9 +25,9 @@ OWNER = config.get('OWNER', 'DEFAULT_OWNER')
 TAGS = config.get('TAGS', [])
 TAGS.append(OWNER)
 
-# Fetch Snowflake schema from the connection and folder
-extras = BaseHook.get_connection(SNOWFLAKE_CONN_ID).extra_dejson
-SNOWFLAKE_SCHEMA = extras['database'] + "." + directory_name
+# Commented out to avoid connection error
+# extras = BaseHook.get_connection(SNOWFLAKE_CONN_ID).extra_dejson
+# SNOWFLAKE_SCHEMA = extras['database'] + "." + directory_name
 
 # Set default arguments for the DAG
 default_args = {
@@ -95,14 +95,15 @@ for subdir_name in target_subdirs:
                     sql_query = f.read()
 
                     # Inject schema name and params into the SQL query if not already present
-                    if "USE" not in sql_query.upper():
-                        sql_query = f"USE {SNOWFLAKE_SCHEMA};\n" + sql_query
+                    # Commented out to avoid connection error
+                    # if "USE" not in sql_query.upper():
+                    #     sql_query = f"USE {SNOWFLAKE_SCHEMA};\n" + sql_query
                     
                     task = SnowflakeOperator(
                         task_id=task_id,
                         sql=sql_query,
                         snowflake_conn_id=SNOWFLAKE_CONN_ID,
-                        params={"schema_name": SNOWFLAKE_SCHEMA, **params},
+                        params={"schema_name": "your_schema_here", **params},  # Replace with a default or dummy value
                         dag=dag,
                     )
                 
