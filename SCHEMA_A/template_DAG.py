@@ -21,17 +21,13 @@ with open(yml_file_path, 'r') as file:
 
 # Extract configuration variables
 SNOWFLAKE_CONN_ID = config.get('SNOWFLAKE_CONN_ID', 'DEFAULT_CONNECTION')
-SNOWFLAKE_SCHEMA = config.get('SNOWFLAKE_SCHEMA','DEFAULT_SCHEMA')
-
-# # Fetch Snowflake schema from the connection and folder
-# extras = BaseHook.get_connection(SNOWFLAKE_CONN_ID).extra_dejson
-# SNOWFLAKE_SCHEMA = extras['database'] + "." + directory_name
-
 OWNER = config.get('OWNER', 'DEFAULT_OWNER')
 TAGS = config.get('TAGS', [])
-
-# Add owner to tags
 TAGS.append(OWNER)
+
+# Fetch Snowflake schema from the connection and folder
+extras = BaseHook.get_connection(SNOWFLAKE_CONN_ID).extra_dejson
+SNOWFLAKE_SCHEMA = extras['database'] + "." + directory_name
 
 # Set default arguments for the DAG
 default_args = {
@@ -39,10 +35,15 @@ default_args = {
     "snowflake_conn_id": SNOWFLAKE_CONN_ID,
 }
 
-# # Read the content of README.md
-# readme_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'README.md')
-# with open(readme_path, 'r') as file:
-#     readme_content = file.read()
+# Read the content of README.md
+readme_path = os.path.join(os.path.dirname(os.path.realpath(__file__)), 'README.md')
+with open(readme_path, 'r') as file:
+    readme_content = file.read()
+
+# Fetch dynamic parameters from Airflow variables
+params = {}
+for param_key in config.get('PARAMS', []):
+    params[param_key] = Variable.get(param_key, default_var="")
 
 # Initialize the DAG
 dag = DAG(
@@ -53,7 +54,7 @@ dag = DAG(
     template_searchpath=base_directory_path,
     start_date=days_ago(1),
     tags=TAGS,
-    # doc_md=readme_content,
+    doc_md=readme_content,
 )
 
 # Define target subdirectories
@@ -70,14 +71,6 @@ target_subdirs = [
     'dml'
 ]
 
-obj_yml_file_path = os.path.join(base_directory_path, 'objects.yml')
-if os.path.exists(obj_yml_file_path):
-    with open(obj_yml_file_path, 'r') as file:
-        object_dirs = yaml.safe_load(file)
-        if 'OBJECTS' in object_dirs and object_dirs['OBJECTS']:
-            target_subdirs = object_dirs['OBJECTS']
-
-
 # Create task groups and tasks
 task_groups = {}
 prev_group = None
@@ -88,43 +81,43 @@ for subdir_name in target_subdirs:
     if not os.path.isdir(subdir_path):
         continue
     
-    n_tasks = 0
-    for file in sorted(os.listdir(subdir_path)):
+    with TaskGroup(group_id=subdir_name, dag=dag) as tg:
+        prev_task = None
+
+        n_tasks = 0
+        
+        for file in sorted(os.listdir(subdir_path)):
             if file.endswith('.sql'):
-                n_tasks = n_tasks + 1
-    
-    if n_tasks > 0:
-        with TaskGroup(group_id=subdir_name, dag=dag) as tg:
-            prev_task = None
-            
-            for file in sorted(os.listdir(subdir_path)):
-                if file.endswith('.sql'):
-                    file_path = os.path.join(subdir_path, file)
-                    task_id = f"{file.replace('.sql', '')}"
-                    
-                    with open(file_path, 'r') as f:
-                        sql_query = f.read()
+                file_path = os.path.join(subdir_path, file)
+                task_id = f"{file.replace('.sql', '')}"
+                
+                with open(file_path, 'r') as f:
+                    sql_query = f.read()
 
-                        # Inject schema name into the SQL query if not already present
-                        if "USE" not in sql_query.upper():
-                            sql_query = f"USE {SNOWFLAKE_SCHEMA};\n" + sql_query
-                        
-                        task = SnowflakeOperator(
-                            task_id=task_id,
-                            sql=sql_query,
-                            snowflake_conn_id=SNOWFLAKE_CONN_ID,
-                            params={"schema_name": SNOWFLAKE_SCHEMA},
-                            dag=dag,
-                        )
+                    # Inject schema name and params into the SQL query if not already present
+                    if "USE" not in sql_query.upper():
+                        sql_query = f"USE {SNOWFLAKE_SCHEMA};\n" + sql_query
                     
-                        if prev_task:
-                            prev_task >> task 
-                    
-                        prev_task = task
+                    task = SnowflakeOperator(
+                        task_id=task_id,
+                        sql=sql_query,
+                        snowflake_conn_id=SNOWFLAKE_CONN_ID,
+                        params={"schema_name": SNOWFLAKE_SCHEMA, **params},
+                        dag=dag,
+                    )
+                
+                    if prev_task:
+                        prev_task >> task 
+                
+                    prev_task = task
+                    n_tasks += 1
+        
+        if n_tasks < 1:
+            continue
 
-            task_groups[subdir_name] = tg
-            
-            if prev_group:
-                prev_group >> tg
-            
-            prev_group = tg
+        task_groups[subdir_name] = tg
+        
+        if prev_group:
+            prev_group >> tg
+        
+        prev_group = tg
