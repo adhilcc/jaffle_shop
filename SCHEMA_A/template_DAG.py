@@ -43,7 +43,7 @@ with open(readme_path, 'r') as file:
 # Fetch dynamic parameters from Airflow variables
 params = {}
 for param_key in config.get('PARAMS', []):
-    params[param_key] = Variable.get(param_key, default_var="")
+    params[param_key] = Variable.get(param_key)
 
 # Initialize the DAG
 dag = DAG(
