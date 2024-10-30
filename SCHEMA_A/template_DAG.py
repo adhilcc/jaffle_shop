@@ -45,6 +45,8 @@ params = {}
 for param_key in config.get('PARAMS', []):
     params[param_key] = Variable.get(param_key)
 
+TAGS.extend(params.keys())
+
 # Initialize the DAG
 dag = DAG(
     dynamic_dag_id,
