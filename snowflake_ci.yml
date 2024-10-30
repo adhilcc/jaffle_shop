@@ -1,7 +1,9 @@
 SNOWFLAKE_CONN_ID: "snowflake_connection"
 SNOWFLAKE_SCHEMA: "TEST_DEV_DB.TEST_SCHEMA"
-OWNER: "sample_owner"
+OWNER: "data_engineering"
+PARAMS:
+  - key1
+  - key2
 TAGS:
-  - "mpmathew"
-  - "objects"
-  - "dynamic"
+  - "SNOWFLAKE"
+  - "CICD"
