@@ -59,16 +59,11 @@ dag = DAG(
 
 # Define target subdirectories
 target_subdirs = [
-    'file_formats', 
+    'file_formats',
+    'model',
     'stages', 
     'tables',
-    'views',
-    'sequences',
-    'streams', 
-    'functions', 
-    'procedures',
-    'tasks',
-    'dml'
+    'views'
 ]
 
 # Create task groups and tasks
@@ -122,4 +117,4 @@ for subdir_name in target_subdirs:
         
         prev_group = tg
 
-##tets2
+##tets
