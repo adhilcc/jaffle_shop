@@ -1,0 +1,10 @@
+SNOWFLAKE_CONN_ID: "snowflake_connection"
+OWNER: "data_engineering"
+SCHEMAS:
+  - "CI"
+PARAMS:
+  - 'r2'
+  - 'p2'
+TAGS:
+  - "SNOWFLAKE"
+  - "CICD"
